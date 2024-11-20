@@ -1,0 +1,61 @@
+-- create type films as
+-- (
+--     film   text,
+--     votes  integer,
+--     rating real,
+--     filmid text
+-- );
+--
+-- create type quality_class as enum('star', 'good', 'average', 'bad');
+--
+-- drop table actors;
+--
+-- create table actors (
+--         actorid text,
+--         films films[],
+--         quality_class quality_class,
+--         is_active boolean,
+--         current_year integer,
+--     primary key (actorid, current_year)
+-- );
+
+-- insert into actors
+-- with yesterday as (
+--     select
+--         actorid,
+--         year,
+--         array_agg(row(film, votes, rating, filmid)::films) as films,
+--         avg(rating) as avg_rating
+--     from actor_films
+--     where year = 1969
+--     group by actorid, year
+-- ),
+-- today as (
+--     select
+--         actorid,
+--         year,
+--         array_agg(row(film, votes, rating, filmid)::films) as films,
+--         avg(rating) as avg_rating
+--     from actor_films
+--     where year = 1970
+--     group by actorid, year
+-- )
+-- select
+--     coalesce(t.actorid, y.actorid) as actorid,
+--     coalesce(t.films, array[]::films[]) ||
+--             coalesce(y.films, array[]::films[]
+--     ) as films,
+--     case
+--         when coalesce(t.avg_rating, y.avg_rating) > 8 then 'star'::quality_class
+--         when coalesce(t.avg_rating, y.avg_rating) > 7 and coalesce(t.avg_rating, y.avg_rating) <= 8 then 'good'::quality_class
+--         when coalesce(t.avg_rating, y.avg_rating) > 6 and coalesce(t.avg_rating, y.avg_rating) <= 7 then 'average'::quality_class
+--         else 'bad'::quality_class
+--     end as quality_class,
+--     case when t.year is not null then true else false end as is_active,
+--     coalesce(t.year, y.year+1) as current_year
+-- from today t
+-- full outer join yesterday y on t.actorid = y.actorid
+-- ;
+
+
+
