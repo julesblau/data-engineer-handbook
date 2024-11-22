@@ -12,6 +12,7 @@
 --
 -- create table actors (
 --         actorid text,
+--         actor text,
 --         films films[],
 --         quality_class quality_class,
 --         is_active boolean,
@@ -23,39 +24,106 @@
 -- with yesterday as (
 --     select
 --         actorid,
---         year,
---         array_agg(row(film, votes, rating, filmid)::films) as films,
---         avg(rating) as avg_rating
---     from actor_films
---     where year = 1969
---     group by actorid, year
+--         actor,
+--         current_year as year,
+--         films,
+--         quality_class
+--     from actors
+--     where current_year = 1974
+--     group by actorid, year, actor
 -- ),
 -- today as (
 --     select
 --         actorid,
+--         actor,
 --         year,
 --         array_agg(row(film, votes, rating, filmid)::films) as films,
 --         avg(rating) as avg_rating
 --     from actor_films
---     where year = 1970
---     group by actorid, year
+--     where year = 1975
+--     group by actorid, year, actor
 -- )
 -- select
 --     coalesce(t.actorid, y.actorid) as actorid,
---     coalesce(t.films, array[]::films[]) ||
---             coalesce(y.films, array[]::films[]
---     ) as films,
---     case
---         when coalesce(t.avg_rating, y.avg_rating) > 8 then 'star'::quality_class
---         when coalesce(t.avg_rating, y.avg_rating) > 7 and coalesce(t.avg_rating, y.avg_rating) <= 8 then 'good'::quality_class
---         when coalesce(t.avg_rating, y.avg_rating) > 6 and coalesce(t.avg_rating, y.avg_rating) <= 7 then 'average'::quality_class
---         else 'bad'::quality_class
+--     coalesce(t.actor, y.actor) as actor,
+--     array_cat(coalesce(t.films, '{}'), coalesce(y.films, '{}')) as films,
+--     case when t.avg_rating is not null then
+--             case when t.avg_rating  > 8 then 'star'::quality_class
+--                 when t.avg_rating  > 7 and t.avg_rating  <= 8 then 'good'::quality_class
+--                 when t.avg_rating  > 6 and t.avg_rating <= 7 then 'average'::quality_class
+--                 when t.avg_rating  > 8 then 'star'::quality_class
+--             else 'bad'::quality_class end
+--         else y.quality_class
 --     end as quality_class,
 --     case when t.year is not null then true else false end as is_active,
 --     coalesce(t.year, y.year+1) as current_year
 -- from today t
 -- full outer join yesterday y on t.actorid = y.actorid
--- ;
+;
+
+-- drop table actor_history_scd;
+
+-- create table actor_history_scd (
+--     actorid text,
+--     actor text,
+--     films films[],
+--     quality_class quality_class,
+--     is_active boolean,
+--     start_date integer,
+--     end_date integer,
+--     primary key (actorid, start_date, end_date)
+-- );
+
+-- insert into actor_history_scd
+-- with with_previous as (select actorid,
+--                               actor,
+--                               films,
+--                               current_year,
+--                               quality_class,
+--                               lag(quality_class, 1) over (partition by actorid order by current_year) as previous_quality_class,
+--                               is_active,
+--                               lag(is_active, 1) over (partition by actorid order by current_year)  as previous_is_active
+--                        from actors),
+-- with_indicators as (
+--     select *,
+--         case when quality_class != previous_quality_class then 1
+--             when is_active != previous_is_active then 1
+--             else 0
+--     end as change_indicator
+--     from with_previous
+--     ) ,
+-- with_streaks as (
+--     select *, sum(change_indicator) over (partition by actorid order by current_year) as streak_identifier
+--     from with_indicators
+--     ),
+-- with_year as (
+--     select
+--         actorid,
+--         actor,
+--         min(films) as films, -- Consolidate films to avoid PK issues
+--         quality_class,
+--         is_active,
+--         streak_identifier,
+--         min(current_year) as start_date,
+--         max(current_year) as end_date
+--     from with_streaks
+--     group by
+--         actorid, actor, quality_class, is_active, streak_identifier
+-- )
+-- select
+--     actorid,
+--     actor,
+--     films,
+--     quality_class,
+--     is_active,
+--     start_date,
+--     end_date
+-- from with_year
+-- order by actor, start_date;
 
 
-
+--27:37 in lecture
+with last_scd as (
+    select * from actor_history_scd
+             where cu
+)
